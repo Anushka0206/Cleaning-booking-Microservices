@@ -1,0 +1,262 @@
+# Oracle / cloud VM — full stack (no Sonar/Grafana). First build: 20–40 min on free ARM.
+# Usage: docker compose -f docker-compose.deploy.yml up -d --build
+
+name: justlife-platform-deploy
+
+x-eureka-env: &eureka-env
+  SPRING_CONFIG_IMPORT: optional:configserver:http://config-server:8888
+  EUREKA_DEFAULTZONE: http://discovery-server:8761/eureka/
+  EUREKA_INSTANCE_PREFER_IP_ADDRESS: "false"
+  JWT_SECRET: ${JWT_SECRET}
+  TRACING_SAMPLING_PROBABILITY: "0"
+
+services:
+  postgres-professionals:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${PROFESSIONALS_DB}
+    volumes:
+      - pg_prof_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${PROFESSIONALS_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  postgres-bookings:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${BOOKINGS_DB}
+    volumes:
+      - pg_book_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${BOOKINGS_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  postgres-auth:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${AUTH_DB:-auth}
+    volumes:
+      - pg_auth_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${AUTH_DB:-auth}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  postgres-notifications:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${NOTIFICATIONS_DB:-notifications}
+    volumes:
+      - pg_notif_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${NOTIFICATIONS_DB:-notifications}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  kafka:
+    image: apache/kafka:latest
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://:29092,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:29092 --list >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 25s
+
+  kafka-init:
+    image: confluentinc/cp-kafka:7.6.1
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint:
+      - bash
+      - -lc
+      - |
+        kafka-topics --create --if-not-exists --topic ${KAFKA_TOPIC_BOOKING_EVENTS} --bootstrap-server kafka:29092 --partitions 1 --replication-factor 1
+        kafka-topics --create --if-not-exists --topic ${KAFKA_TOPIC_BOOKING_EVENTS_DLT} --bootstrap-server kafka:29092 --partitions 1 --replication-factor 1
+
+  config-server:
+    build: ./config-server
+    restart: unless-stopped
+    environment:
+      SPRING_PROFILES_ACTIVE: native
+      CONFIG_REPO_PATH: /config-repo
+      TRACING_SAMPLING_PROBABILITY: "0"
+    volumes:
+      - ./config-repo:/config-repo:ro
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/8888'"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  discovery-server:
+    build: ./discovery-server
+    restart: unless-stopped
+    environment:
+      <<: *eureka-env
+      EUREKA_INSTANCE_HOSTNAME: discovery-server
+    depends_on:
+      config-server:
+        condition: service_healthy
+
+  api-gateway:
+    build: ./api-gateway
+    restart: unless-stopped
+    environment:
+      <<: *eureka-env
+      EUREKA_INSTANCE_HOSTNAME: api-gateway
+    ports:
+      - "8080:8080"
+    depends_on:
+      - discovery-server
+
+  professional-service:
+    build:
+      context: .
+      dockerfile: professional-service/Dockerfile
+    restart: unless-stopped
+    environment:
+      <<: *eureka-env
+      EUREKA_INSTANCE_HOSTNAME: professional-service
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-professionals:5432/${PROFESSIONALS_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    depends_on:
+      postgres-professionals:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      discovery-server:
+        condition: service_started
+
+  booking-service:
+    build:
+      context: .
+      dockerfile: booking-service/Dockerfile
+    restart: unless-stopped
+    environment:
+      <<: *eureka-env
+      EUREKA_INSTANCE_HOSTNAME: booking-service
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-bookings:5432/${BOOKINGS_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+    depends_on:
+      postgres-bookings:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      discovery-server:
+        condition: service_started
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: auth-service/Dockerfile
+    restart: unless-stopped
+    environment:
+      <<: *eureka-env
+      EUREKA_INSTANCE_HOSTNAME: auth-service
+      AUTH_DATASOURCE_URL: jdbc:postgresql://postgres-auth:5432/${AUTH_DB:-auth}
+      AUTH_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      AUTH_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+    depends_on:
+      postgres-auth:
+        condition: service_healthy
+      discovery-server:
+        condition: service_started
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: notification-service/Dockerfile
+    restart: unless-stopped
+    environment:
+      <<: *eureka-env
+      EUREKA_INSTANCE_HOSTNAME: notification-service
+      NOTIFICATIONS_DATASOURCE_URL: jdbc:postgresql://postgres-notifications:5432/${NOTIFICATIONS_DB:-notifications}
+      NOTIFICATIONS_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      NOTIFICATIONS_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      KAFKA_TOPIC_BOOKING_EVENTS: ${KAFKA_TOPIC_BOOKING_EVENTS}
+    depends_on:
+      postgres-notifications:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      discovery-server:
+        condition: service_started
+
+  # HTTPS for Vercel (browsers block https → http). Set API_DOMAIN in .env (e.g. from DuckDNS).
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      API_DOMAIN: ${API_DOMAIN:-localhost}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api-gateway
+
+volumes:
+  pg_prof_data:
+  pg_book_data:
+  pg_auth_data:
+  pg_notif_data:
+  caddy_data:
+  caddy_config:

@@ -1,0 +1,4 @@
+# Replace with your DuckDNS / domain, e.g. cleaning-api.duckdns.org
+{$API_DOMAIN:localhost} {
+  reverse_proxy api-gateway:8080
+}
