@@ -1,0 +1,51 @@
+# Secrets — NEVER commit (use .env.example as template)
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.local
+**/.env.*.local
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Java / Maven
+target/
+**/target/
+!.mvn/wrapper/maven-wrapper.jar
+.mvn/wrapper/maven-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.project
+.classpath
+.settings/
+.factorypath
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs & temp
+*.log
+*.tmp
+HELP.md
+
+# Build
+build/
+**/build/
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# Misc local
+nbproject/private/
+nbbuild/
+dist/
+nbdist/
+.nb-gradle/

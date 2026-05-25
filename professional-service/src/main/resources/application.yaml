@@ -1,0 +1,33 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: professionals-service
+  config:
+    import: optional:configserver:http://localhost:8888
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    url: jdbc:postgresql://localhost:5433/professionals?options=-c%20TimeZone%3DUTC
+    username: justlife
+    password: justlife
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: none
+  flyway:
+    enabled: true
+    url: jdbc:postgresql://localhost:5433/professionals?options=-c%20TimeZone%3DUTC
+    user: justlife
+    password: justlife
+    locations: classpath:db/migration
+    connect-retries: 10
+
+eureka:
+  instance:
+    prefer-ip-address: true
+    ip-address: 127.0.0.1
+    hostname: 127.0.0.1
+  client:
+    service-url:
+      defaultZone: http://localhost:8761/eureka/

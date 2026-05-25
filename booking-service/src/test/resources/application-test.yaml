@@ -1,0 +1,3 @@
+justlife:
+  jwt:
+    secret: test-secret-for-unit-tests-min-32-chars-long!!

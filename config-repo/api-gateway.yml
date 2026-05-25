@@ -1,0 +1,140 @@
+server:
+  port: 8080
+  forward-headers-strategy: framework
+
+spring:
+  application:
+    name: api-gateway
+
+  main:
+    web-application-type: reactive
+
+  cloud:
+    gateway:
+      server:
+        webflux:
+          discovery:
+            locator:
+              enabled: true
+              lower-case-service-id: true
+
+          # Optional but helpful for Swagger UI and browser calls
+          globalcors:
+            add-to-simple-url-handler-mapping: true
+            corsConfigurations:
+              "[/**]":
+                allowedOrigins: "*"
+                allowedMethods: "*"
+                allowedHeaders: "*"
+                exposedHeaders: "Authorization,Link,X-Total-Count"
+                allowCredentials: false
+                maxAge: 3600
+
+          default-filters:
+            - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+
+          routes:
+            # ---------------------------
+            # Professionals (Business APIs)
+            # ---------------------------
+            - id: professionals-native
+              uri: lb://PROFESSIONALS-SERVICE
+              predicates:
+                - Path=/api/v1/**
+
+            - id: professionals
+              uri: lb://PROFESSIONALS-SERVICE
+              predicates:
+                - Path=/api/professionals/**
+              filters:
+                # /api/professionals/** -> /api/**
+                - RewritePath=/api/professionals/(?<segment>.*),/api/${segment}
+
+            # ---------------------------
+            # Booking (Business APIs)
+            # ---------------------------
+            - id: booking
+              uri: lb://BOOKING-SERVICE
+              predicates:
+                - Path=/api/bookings/**,/api/availability/**
+
+            # ---------------------------
+            # AI assistant
+            # ---------------------------
+            - id: auth-service
+              uri: lb://AUTH-SERVICE
+              predicates:
+                - Path=/api/auth/**
+
+            - id: notification-service
+              uri: lb://NOTIFICATION-SERVICE
+              predicates:
+                - Path=/api/notifications/**
+
+            - id: ai-service
+              uri: lb://AI-SERVICE
+              predicates:
+                - Path=/api/ai/**
+
+            # ---------------------------
+            # OpenAPI routes (Swagger docs)
+            # ---------------------------
+            - id: professionals-openapi
+              uri: lb://PROFESSIONALS-SERVICE
+              predicates:
+                - Path=/professionals/v3/api-docs,/professionals/v3/api-docs/**
+              filters:
+                - StripPrefix=1
+
+            - id: booking-openapi
+              uri: lb://BOOKING-SERVICE
+              predicates:
+                - Path=/booking/v3/api-docs,/booking/v3/api-docs/**
+              filters:
+                - StripPrefix=1
+
+# Gateway Swagger UI (aggregated)
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    disable-swagger-default-url: true
+    urls:
+      - name: professionals-service
+        url: /professionals/v3/api-docs
+      - name: booking-service
+        url: /booking/v3/api-docs
+
+management:
+  tracing:
+    sampling:
+      probability: 1.0
+    export:
+      enabled: true
+      zipkin:
+        enabled: true
+        endpoint: http://localhost:9411/api/v2/spans
+  observations:
+    http:
+      client:
+        requests:
+          name: gateway.outbound.requests
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus,gateway,env,configprops,loggers
+  endpoint:
+    health:
+      show-details: always
+    gateway:
+      access: read-only
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_DEFAULTZONE:http://localhost:8761/eureka/}
+
+logging:
+  level:
+    org.springframework.cloud.gateway: INFO
+    reactor.netty.http.client: INFO
