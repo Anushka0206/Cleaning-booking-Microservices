@@ -5,6 +5,7 @@ import {
   cancelCustomerBooking,
   fetchAvailabilityByDate,
   fetchMyBookingsFromApi,
+  notifyCleanersForBooking,
   updateBooking,
 } from '../api/bookingApi';
 import Alert from '../components/Alert';
@@ -32,6 +33,7 @@ export default function MyBookings() {
   const [saving, setSaving] = useState(false);
   const [cancellingId, setCancellingId] = useState(null);
   const [cancelTarget, setCancelTarget] = useState(null);
+  const [notifyingId, setNotifyingId] = useState(null);
 
   const load = useCallback(async () => {
     if (!user?.userId) return;
@@ -42,7 +44,6 @@ export default function MyBookings() {
       setBookings((list || []).map(mapApiBookingToCard));
     } catch (err) {
       setError(getApiErrorMessage(err));
-      setBookings([]);
     } finally {
       setLoading(false);
     }
@@ -85,6 +86,18 @@ export default function MyBookings() {
     setRescheduleForm({ date: b.date || '', time: b.time || '' });
     setRescheduleSlots(null);
     setError('');
+  }
+
+  async function handleNotifyCleaners(bookingId) {
+    setNotifyingId(bookingId);
+    setError('');
+    try {
+      await notifyCleanersForBooking(bookingId);
+    } catch (err) {
+      setError(getApiErrorMessage(err));
+    } finally {
+      setNotifyingId(null);
+    }
   }
 
   async function confirmCancel() {
@@ -213,15 +226,31 @@ export default function MyBookings() {
               <p className="mt-1 text-sm text-slate-500">
                 {formatShortDate(b.date)} at {b.time} · {b.duration}
               </p>
-              {b.id && (
-                <p className="mt-1 font-mono text-xs text-slate-400">
-                  ID: {b.id}
-                  {b.vehicleId ? ` · Vehicle: ${b.vehicleId}` : ''}
-                </p>
+              {b.vehicleName && (
+                <p className="mt-1 text-xs text-slate-500">Team: {b.vehicleName}</p>
+              )}
+              {b.assignedCleaners?.length > 0 && (
+                <ul className="mt-2 space-y-1 text-xs text-slate-600">
+                  {b.assignedCleaners.map((c) => (
+                    <li key={c.id}>
+                      <strong>{c.fullName || 'Cleaner'}</strong>
+                      {c.phone ? ` · ${c.phone}` : ''}
+                      {c.email ? ` · ${c.email}` : ''}
+                    </li>
+                  ))}
+                </ul>
               )}
 
               {b.id && b.status !== 'CANCELLED' && (
                 <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleNotifyCleaners(b.id)}
+                    disabled={notifyingId === b.id}
+                    className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    {notifyingId === b.id ? 'Alerting…' : 'Alert cleaner'}
+                  </button>
                   <button
                     type="button"
                     onClick={() => openReschedule(b)}

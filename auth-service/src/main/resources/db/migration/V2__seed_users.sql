@@ -1,4 +1,5 @@
 -- BCrypt hash for password "customer123" and "cleaner123" (strength 10)
+-- ON CONFLICT: safe if demo users already exist (Flyway re-run / repair)
 INSERT INTO app_user (id, email, password_hash, full_name, phone, address, role, cleaner_id)
 VALUES (
     'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
@@ -9,7 +10,8 @@ VALUES (
     'Marina Tower, Apt 1204, Dubai',
     'CUSTOMER',
     NULL
-);
+)
+ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO app_user (id, email, password_hash, full_name, phone, address, role, cleaner_id)
 VALUES (
@@ -21,4 +23,5 @@ VALUES (
     NULL,
     'CLEANER',
     '2949580d-d1bf-4a22-966f-aaf79898fd3d'
-);
+)
+ON CONFLICT (id) DO NOTHING;

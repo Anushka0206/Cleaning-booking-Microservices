@@ -22,7 +22,8 @@ public class NotificationAppService {
     String customerName = textOrNull(event, "customerName");
     String customerPhone = textOrNull(event, "customerPhone");
     String customerAddress = textOrNull(event, "customerAddress");
-    String startAt = event.path("startAt").asText();
+    var slotStart = NotificationMessageFormatter.parseSlotStart(event);
+    int durationHours = NotificationMessageFormatter.parseDurationHours(event);
     JsonNode cleaners = event.path("cleanerIds");
     if (!cleaners.isArray()) {
       return;
@@ -35,9 +36,9 @@ public class NotificationAppService {
       n.setCustomerName(customerName);
       n.setCustomerPhone(customerPhone);
       n.setCustomerAddress(customerAddress);
-      n.setMessage("New booking " + bookingId + " at " + startAt
-          + ". Customer: " + safe(customerName) + ", phone: " + safe(customerPhone)
-          + ", address: " + safe(customerAddress));
+      n.setSlotStartAt(slotStart);
+      n.setDurationHours(durationHours > 0 ? durationHours : null);
+      n.setMessage(NotificationMessageFormatter.assignedMessage(event, type));
       notificationRepository.save(n);
     }
   }

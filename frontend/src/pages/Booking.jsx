@@ -240,7 +240,7 @@ export default function Booking() {
           disabled={checking || loading}
           className="w-full rounded-lg border border-brand-300 py-2 text-sm font-medium text-brand-700 hover:bg-brand-50 disabled:opacity-50"
         >
-          {checking ? 'Checking slot…' : 'Check this exact slot (API)'}
+          {checking ? 'Checking slot…' : 'Check if this time is free'}
         </button>
 
         {slotPreview?.vehicles?.length > 0 && (
@@ -249,7 +249,10 @@ export default function Booking() {
             <ul className="mt-1 list-inside list-disc">
               {slotPreview.vehicles.map((v) => (
                 <li key={v.vehicleId}>
-                  {v.vehicleId} — {v.availableCleanerIds?.length ?? 0} cleaner(s)
+                  <strong>{v.vehicleName || 'Team'}</strong>
+                  {v.availableCleaners?.length
+                    ? `: ${v.availableCleaners.map((c) => c.cleanerName).join(', ')}`
+                    : ` — ${v.availableCleanerIds?.length ?? 0} cleaner(s)`}
                 </li>
               ))}
             </ul>
@@ -257,7 +260,7 @@ export default function Booking() {
         )}
 
         <p className="text-xs text-slate-400">
-          Booking is created via API gateway. Customer details are stored locally for display.
+          Your booking is saved on our servers. Contact details are taken from your profile.
         </p>
 
         <button

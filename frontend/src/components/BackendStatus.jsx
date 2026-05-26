@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { checkGatewayHealth } from '../api/bookingApi';
+import { checkGatewayHealth, isGatewayUp } from '../api/bookingApi';
 import { getApiErrorMessage } from '../api/client';
 
 export default function BackendStatus() {
@@ -13,12 +13,12 @@ export default function BackendStatus() {
       try {
         const health = await checkGatewayHealth();
         if (cancelled) return;
-        if (health?.status === 'UP') {
+        if (isGatewayUp(health)) {
           setStatus('up');
-          setDetail('Gateway OK');
+          setDetail('Server is running');
         } else {
           setStatus('down');
-          setDetail('Gateway not UP');
+          setDetail('Server is not ready yet');
         }
       } catch (err) {
         if (!cancelled) {
@@ -47,7 +47,7 @@ export default function BackendStatus() {
       className={`hidden max-w-xs truncate rounded-full px-2 py-1 text-xs font-medium sm:block ${colors[status]}`}
       title={detail}
     >
-      API: {status === 'checking' ? '…' : status === 'up' ? 'Connected' : 'Offline'}
+      {status === 'checking' ? 'Checking…' : status === 'up' ? 'Online' : 'Offline'}
     </div>
   );
 }

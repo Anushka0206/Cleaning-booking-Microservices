@@ -2,8 +2,25 @@ import { api, unwrap } from './client';
 
 /** Gateway health — safe to call anytime */
 export async function checkGatewayHealth() {
-  const { data } = await api.get('/actuator/health');
-  return data;
+  const { data, status: httpStatus } = await api.get('/actuator/health', {
+    validateStatus: (s) => s >= 200 && s < 600,
+  });
+  if (httpStatus >= 200 && httpStatus < 300) {
+    return data;
+  }
+  const err = new Error(`Gateway health HTTP ${httpStatus}`);
+  err.response = { status: httpStatus, data };
+  throw err;
+}
+
+/** Spring Boot actuator (flat or composite) */
+export function isGatewayUp(health) {
+  if (!health || typeof health !== 'object') return false;
+  if (health.status === 'UP') return true;
+  if (health.status === 'DOWN') return false;
+  const groups = health.groups || health.components;
+  if (!groups || typeof groups !== 'object') return false;
+  return !Object.values(groups).some((c) => c?.status === 'DOWN');
 }
 
 /** GET /api/availability?date=YYYY-MM-DD */
@@ -42,6 +59,12 @@ export async function updateBooking(bookingId, { newStartAt, newDurationHours })
     newStartAt,
     newDurationHours,
   });
+  return unwrap(data);
+}
+
+/** POST /api/bookings/{id}/notify-cleaners — re-send Kafka alerts to assigned cleaners */
+export async function notifyCleanersForBooking(bookingId) {
+  const { data } = await api.post(`/api/bookings/${bookingId}/notify-cleaners`);
   return unwrap(data);
 }
 

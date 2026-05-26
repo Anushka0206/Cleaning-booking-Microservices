@@ -1,6 +1,7 @@
 package com.booking.notificationservice.model;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 import jakarta.persistence.Column;
@@ -44,6 +45,12 @@ public class NotificationEntity {
   @Column(name = "created_at", nullable = false)
   private Instant createdAt;
 
+  @Column(name = "slot_start_at")
+  private LocalDateTime slotStartAt;
+
+  @Column(name = "duration_hours")
+  private Integer durationHours;
+
   public NotificationEntity() {}
 
   @PrePersist
@@ -66,6 +73,8 @@ public class NotificationEntity {
   public String getCustomerAddress() { return customerAddress; }
   public boolean isRead() { return read; }
   public Instant getCreatedAt() { return createdAt; }
+  public LocalDateTime getSlotStartAt() { return slotStartAt; }
+  public Integer getDurationHours() { return durationHours; }
 
   public void setCleanerId(String cleanerId) { this.cleanerId = cleanerId; }
   public void setBookingId(String bookingId) { this.bookingId = bookingId; }
@@ -75,4 +84,6 @@ public class NotificationEntity {
   public void setCustomerPhone(String customerPhone) { this.customerPhone = customerPhone; }
   public void setCustomerAddress(String customerAddress) { this.customerAddress = customerAddress; }
   public void setRead(boolean read) { this.read = read; }
+  public void setSlotStartAt(LocalDateTime slotStartAt) { this.slotStartAt = slotStartAt; }
+  public void setDurationHours(Integer durationHours) { this.durationHours = durationHours; }
 }

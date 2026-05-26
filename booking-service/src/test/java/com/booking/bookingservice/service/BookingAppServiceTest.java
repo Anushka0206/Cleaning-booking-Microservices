@@ -118,6 +118,13 @@ class BookingAppServiceTest extends AbstractBaseServiceTest {
             ReflectionTestUtils.setField(booking, "id", "booking-1");
             return booking;
         });
+        when(bookingRepository.findWithCleanersById("booking-1")).thenAnswer(invocation -> {
+            BookingEntity booking = new BookingEntity(startAt, endAt, 2, "veh-1", BookingStatus.ACTIVE);
+            ReflectionTestUtils.setField(booking, "id", "booking-1");
+            booking.getCleaners().add(new BookingCleanerEntity(booking, "cl-1"));
+            booking.getCleaners().add(new BookingCleanerEntity(booking, "cl-2"));
+            return Optional.of(booking);
+        });
 
         // When
         BookingEntity result = bookingAppService.create(startAt, 2, 2, null);
@@ -141,17 +148,11 @@ class BookingAppServiceTest extends AbstractBaseServiceTest {
         assertThat(savedBooking.getVehicleId()).isEqualTo("veh-1");
         assertThat(savedBooking.getStatus()).isEqualTo(BookingStatus.ACTIVE);
 
-        @SuppressWarnings("unchecked")
-        ArgumentCaptor<List<BookingCleanerEntity>> cleanerAssignmentsCaptor =
-                ArgumentCaptor.forClass((Class) List.class);
-
-        verify(bookingCleanerRepository, times(1)).saveAll(cleanerAssignmentsCaptor.capture());
-
-        List<BookingCleanerEntity> savedAssignments = cleanerAssignmentsCaptor.getValue();
-        assertThat(savedAssignments).hasSize(2);
-        assertThat(savedAssignments)
+        assertThat(savedBooking.getCleaners()).hasSize(2);
+        assertThat(savedBooking.getCleaners())
                 .extracting(BookingCleanerEntity::getCleanerId)
                 .containsExactly("cl-1", "cl-2");
+        verify(bookingCleanerRepository, never()).saveAll(any());
 
         ArgumentCaptor<BookingEventMessage> eventCaptor = ArgumentCaptor.forClass(BookingEventMessage.class);
         verify(bookingEventPublisher, times(1)).publish(eventCaptor.capture());
@@ -181,19 +182,13 @@ class BookingAppServiceTest extends AbstractBaseServiceTest {
         when(availabilityService.findVehicleWithCapacity(startAt, 2, 2))
                 .thenReturn(Optional.of(candidate));
 
-        when(bookingRepository.save(any(BookingEntity.class))).thenAnswer(invocation -> {
-            BookingEntity booking = invocation.getArgument(0);
-            ReflectionTestUtils.setField(booking, "id", "booking-1");
-            return booking;
-        });
-
         // When / Then
         assertThatThrownBy(() -> bookingAppService.create(startAt, 2, 2, null))
                 .isInstanceOf(DomainException.class)
                 .hasMessage("Not enough available cleaners.");
 
         verify(availabilityService, times(1)).findVehicleWithCapacity(startAt, 2, 2);
-        verify(bookingRepository, times(1)).save(any(BookingEntity.class));
+        verify(bookingRepository, never()).save(any(BookingEntity.class));
         verify(bookingCleanerRepository, never()).saveAll(any());
         verifyNoInteractions(bookingEventPublisher);
     }
@@ -205,14 +200,14 @@ class BookingAppServiceTest extends AbstractBaseServiceTest {
         String bookingId = "booking-1";
         LocalDateTime newStartAt = LocalDateTime.of(2026, 3, 17, 12, 0);
 
-        when(bookingRepository.findById(bookingId)).thenReturn(Optional.empty());
+        when(bookingRepository.findWithCleanersById(bookingId)).thenReturn(Optional.empty());
 
         // When / Then
         assertThatThrownBy(() -> bookingAppService.reschedule(bookingId, newStartAt, 4))
                 .isInstanceOf(DomainException.class)
                 .hasMessage("Booking not found: booking-1");
 
-        verify(bookingRepository, times(1)).findById(bookingId);
+        verify(bookingRepository, times(1)).findWithCleanersById(bookingId);
         verifyNoMoreInteractions(bookingRepository);
         verifyNoInteractions(bookingCleanerRepository, availabilityService, bookingEventPublisher);
     }
@@ -235,14 +230,10 @@ class BookingAppServiceTest extends AbstractBaseServiceTest {
         LocalDateTime newStartAt = LocalDateTime.of(2026, 3, 17, 14, 0);
         LocalDateTime newEndAt = newStartAt.plusHours(4);
 
-        BookingCleanerEntity previous1 = mock(BookingCleanerEntity.class);
-        BookingCleanerEntity previous2 = mock(BookingCleanerEntity.class);
+        existing.getCleaners().add(new BookingCleanerEntity(existing, "cl-1"));
+        existing.getCleaners().add(new BookingCleanerEntity(existing, "cl-2"));
 
-        when(previous1.getCleanerId()).thenReturn("cl-1");
-        when(previous2.getCleanerId()).thenReturn("cl-2");
-
-        when(bookingRepository.findById(bookingId)).thenReturn(Optional.of(existing));
-        when(bookingCleanerRepository.findByBooking_Id(bookingId)).thenReturn(List.of(previous1, previous2));
+        when(bookingRepository.findWithCleanersById(bookingId)).thenReturn(Optional.of(existing));
         when(availabilityService.availableCleanersFor("veh-1", newStartAt, 4, bookingId))
                 .thenReturn(List.of("cl-1", "cl-2", "cl-3"));
         when(bookingRepository.save(existing)).thenReturn(existing);
@@ -257,25 +248,18 @@ class BookingAppServiceTest extends AbstractBaseServiceTest {
         assertThat(result.getDurationHours()).isEqualTo(4);
         assertThat(result.getVehicleId()).isEqualTo("veh-1");
 
-        verify(bookingRepository, times(1)).findById(bookingId);
-        verify(bookingCleanerRepository, times(1)).findByBooking_Id(bookingId);
+        verify(bookingRepository, times(2)).findWithCleanersById(bookingId);
         verify(availabilityService, times(1))
                 .availableCleanersFor("veh-1", newStartAt, 4, bookingId);
         verify(availabilityService, never())
                 .findVehicleWithCapacity(any(), anyInt(), anyInt(), anyString());
 
-        verify(bookingCleanerRepository, times(1)).deleteAllByBookingId(bookingId);
+        verify(bookingRepository, times(1)).flush();
+        verify(bookingCleanerRepository, never()).deleteAll(any());
+        verify(bookingCleanerRepository, never()).saveAll(any());
         verify(bookingRepository, times(1)).save(existing);
-
-        @SuppressWarnings("unchecked")
-        ArgumentCaptor<List<BookingCleanerEntity>> cleanerAssignmentsCaptor =
-                ArgumentCaptor.forClass((Class) List.class);
-
-        verify(bookingCleanerRepository, times(1)).saveAll(cleanerAssignmentsCaptor.capture());
-
-        List<BookingCleanerEntity> savedAssignments = cleanerAssignmentsCaptor.getValue();
-        assertThat(savedAssignments).hasSize(2);
-        assertThat(savedAssignments)
+        assertThat(existing.getCleaners()).hasSize(2);
+        assertThat(existing.getCleaners())
                 .extracting(BookingCleanerEntity::getCleanerId)
                 .containsExactly("cl-1", "cl-2");
 
@@ -311,17 +295,13 @@ class BookingAppServiceTest extends AbstractBaseServiceTest {
         LocalDateTime newStartAt = LocalDateTime.of(2026, 3, 17, 15, 0);
         LocalDateTime newEndAt = newStartAt.plusHours(2);
 
-        BookingCleanerEntity previous1 = mock(BookingCleanerEntity.class);
-        BookingCleanerEntity previous2 = mock(BookingCleanerEntity.class);
-
-        when(previous1.getCleanerId()).thenReturn("cl-1");
-        when(previous2.getCleanerId()).thenReturn("cl-2");
+        existing.getCleaners().add(new BookingCleanerEntity(existing, "cl-1"));
+        existing.getCleaners().add(new BookingCleanerEntity(existing, "cl-2"));
 
         AvailabilityService.VehicleCandidate vehicleCandidate =
                 new AvailabilityService.VehicleCandidate("veh-2", List.of("cl-3", "cl-4", "cl-4"));
 
-        when(bookingRepository.findById(bookingId)).thenReturn(Optional.of(existing));
-        when(bookingCleanerRepository.findByBooking_Id(bookingId)).thenReturn(List.of(previous1, previous2));
+        when(bookingRepository.findWithCleanersById(bookingId)).thenReturn(Optional.of(existing));
 
         when(availabilityService.availableCleanersFor("veh-1", newStartAt, 2, bookingId))
                 .thenReturn(List.of("cl-1"));
@@ -346,18 +326,12 @@ class BookingAppServiceTest extends AbstractBaseServiceTest {
         verify(availabilityService, times(1))
                 .findVehicleWithCapacity(newStartAt, 2, 2, bookingId);
 
-        verify(bookingCleanerRepository, times(1)).deleteAllByBookingId(bookingId);
+        verify(bookingRepository, times(1)).flush();
+        verify(bookingCleanerRepository, never()).deleteAll(any());
+        verify(bookingCleanerRepository, never()).saveAll(any());
         verify(bookingRepository, times(1)).save(existing);
-
-        @SuppressWarnings("unchecked")
-        ArgumentCaptor<List<BookingCleanerEntity>> cleanerAssignmentsCaptor =
-                ArgumentCaptor.forClass((Class) List.class);
-
-        verify(bookingCleanerRepository, times(1)).saveAll(cleanerAssignmentsCaptor.capture());
-
-        List<BookingCleanerEntity> savedAssignments = cleanerAssignmentsCaptor.getValue();
-        assertThat(savedAssignments).hasSize(2);
-        assertThat(savedAssignments)
+        assertThat(existing.getCleaners()).hasSize(2);
+        assertThat(existing.getCleaners())
                 .extracting(BookingCleanerEntity::getCleanerId)
                 .containsExactly("cl-3", "cl-4");
 
@@ -392,14 +366,10 @@ class BookingAppServiceTest extends AbstractBaseServiceTest {
 
         LocalDateTime newStartAt = LocalDateTime.of(2026, 3, 17, 15, 0);
 
-        BookingCleanerEntity previous1 = mock(BookingCleanerEntity.class);
-        BookingCleanerEntity previous2 = mock(BookingCleanerEntity.class);
+        existing.getCleaners().add(new BookingCleanerEntity(existing, "cl-1"));
+        existing.getCleaners().add(new BookingCleanerEntity(existing, "cl-2"));
 
-        when(previous1.getCleanerId()).thenReturn("cl-1");
-        when(previous2.getCleanerId()).thenReturn("cl-2");
-
-        when(bookingRepository.findById(bookingId)).thenReturn(Optional.of(existing));
-        when(bookingCleanerRepository.findByBooking_Id(bookingId)).thenReturn(List.of(previous1, previous2));
+        when(bookingRepository.findWithCleanersById(bookingId)).thenReturn(Optional.of(existing));
 
         when(availabilityService.availableCleanersFor("veh-1", newStartAt, 2, bookingId))
                 .thenReturn(List.of("cl-1"));
@@ -412,7 +382,6 @@ class BookingAppServiceTest extends AbstractBaseServiceTest {
                 .isInstanceOf(DomainException.class)
                 .hasMessage("No availability to reschedule for the requested time window.");
 
-        verify(bookingCleanerRepository, never()).deleteAllByBookingId(anyString());
         verify(bookingRepository, never()).save(existing);
         verify(bookingCleanerRepository, never()).saveAll(any());
         verifyNoInteractions(bookingEventPublisher);
@@ -435,17 +404,13 @@ class BookingAppServiceTest extends AbstractBaseServiceTest {
 
         LocalDateTime newStartAt = LocalDateTime.of(2026, 3, 17, 15, 0);
 
-        BookingCleanerEntity previous1 = mock(BookingCleanerEntity.class);
-        BookingCleanerEntity previous2 = mock(BookingCleanerEntity.class);
-
-        when(previous1.getCleanerId()).thenReturn("cl-1");
-        when(previous2.getCleanerId()).thenReturn("cl-2");
+        existing.getCleaners().add(new BookingCleanerEntity(existing, "cl-1"));
+        existing.getCleaners().add(new BookingCleanerEntity(existing, "cl-2"));
 
         AvailabilityService.VehicleCandidate vehicleCandidate =
                 new AvailabilityService.VehicleCandidate("veh-2", List.of("cl-3", "cl-3"));
 
-        when(bookingRepository.findById(bookingId)).thenReturn(Optional.of(existing));
-        when(bookingCleanerRepository.findByBooking_Id(bookingId)).thenReturn(List.of(previous1, previous2));
+        when(bookingRepository.findWithCleanersById(bookingId)).thenReturn(Optional.of(existing));
 
         when(availabilityService.availableCleanersFor("veh-1", newStartAt, 2, bookingId))
                 .thenReturn(List.of("cl-1"));
@@ -458,7 +423,6 @@ class BookingAppServiceTest extends AbstractBaseServiceTest {
                 .isInstanceOf(DomainException.class)
                 .hasMessage("Not enough available cleaners to reschedule.");
 
-        verify(bookingCleanerRepository, never()).deleteAllByBookingId(anyString());
         verify(bookingRepository, never()).save(existing);
         verify(bookingCleanerRepository, never()).saveAll(any());
         verifyNoInteractions(bookingEventPublisher);

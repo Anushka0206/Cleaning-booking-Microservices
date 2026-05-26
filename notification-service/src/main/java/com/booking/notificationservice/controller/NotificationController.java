@@ -14,6 +14,7 @@ import com.booking.common.security.JwtAuthFilter;
 import com.booking.notificationservice.model.NotificationEntity;
 import com.booking.notificationservice.model.dto.NotificationResponse;
 import com.booking.notificationservice.repository.NotificationRepository;
+import com.booking.notificationservice.service.NotificationMessageFormatter;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -61,6 +62,7 @@ public class NotificationController {
   }
 
   private NotificationResponse toDto(NotificationEntity n) {
+    int hours = n.getDurationHours() != null ? n.getDurationHours() : 0;
     return new NotificationResponse(
         n.getId(),
         n.getBookingId(),
@@ -69,6 +71,9 @@ public class NotificationController {
         n.getCustomerName(),
         n.getCustomerPhone(),
         n.getCustomerAddress(),
+        n.getSlotStartAt(),
+        n.getDurationHours(),
+        NotificationMessageFormatter.formatSlot(n.getSlotStartAt(), hours),
         n.isRead(),
         n.getCreatedAt()
     );

@@ -5,5 +5,7 @@ import java.io.Serializable;
 public record CleanerResponse(
         String id,
         String fullName,
-        String vehicleId
+        String phone,
+        String vehicleId,
+        String vehicleName
 ) implements Serializable {}

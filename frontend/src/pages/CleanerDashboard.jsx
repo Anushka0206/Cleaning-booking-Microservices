@@ -71,7 +71,9 @@ export default function CleanerDashboard() {
 
       <h1 className="text-3xl font-bold text-slate-900">Cleaner dashboard</h1>
       <p className="mt-2 text-slate-500">
-        Signed in as {user?.name} · cleaner ID {user?.cleanerId}
+        Signed in as <strong>{user?.name}</strong>
+        {user?.phone ? ` · ${user.phone}` : ''}
+        {user?.vehicleName ? ` · Team: ${user.vehicleName}` : ''}
       </p>
 
       {error && <div className="mt-4 rounded-lg bg-red-50 p-4 text-sm text-red-700">{error}</div>}
@@ -92,7 +94,12 @@ export default function CleanerDashboard() {
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>
                   <p className="font-semibold text-slate-900">{n.eventType}</p>
-                  <p className="mt-1 text-sm text-slate-600">{n.message}</p>
+                  {(n.slotLabel || n.slotStartAt) && (
+                    <p className="mt-2 rounded-lg bg-brand-100 px-3 py-2 text-sm font-medium text-brand-900">
+                      Your time slot: {n.slotLabel || n.slotStartAt}
+                    </p>
+                  )}
+                  <p className="mt-2 text-sm text-slate-600">{n.message}</p>
                   <p className="mt-2 text-xs text-slate-500">
                     Customer: {n.customerName || '—'} · {n.customerPhone || 'no phone'}
                   </p>
@@ -109,7 +116,7 @@ export default function CleanerDashboard() {
                   </button>
                 )}
               </div>
-              {n.eventType === 'BOOKING_CREATED' && (
+              {(n.eventType === 'BOOKING_CREATED' || n.eventType === 'BOOKING_RESCHEDULED') && (
                 <button
                   type="button"
                   disabled={actionId === n.bookingId}

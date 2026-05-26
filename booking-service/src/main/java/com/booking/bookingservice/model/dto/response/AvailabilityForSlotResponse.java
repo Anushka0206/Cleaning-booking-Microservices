@@ -9,5 +9,11 @@ public record AvailabilityForSlotResponse(
     int professionalCount,
     List<VehicleCandidate> vehicles
 ) {
-  public record VehicleCandidate(String vehicleId, List<String> availableCleanerIds) {}
+  public record VehicleCandidate(
+      String vehicleId,
+      String vehicleName,
+      List<AvailableCleaner> availableCleaners
+  ) {}
+
+  public record AvailableCleaner(String cleanerId, String cleanerName, String phone) {}
 }

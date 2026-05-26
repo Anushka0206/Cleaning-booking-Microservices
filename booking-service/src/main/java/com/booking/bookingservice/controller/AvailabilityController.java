@@ -23,6 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -75,8 +76,9 @@ public class AvailabilityController {
                               .map(cEntry -> new AvailabilityByDateResponse.CleanerAvailability(
                                       cEntry.getKey(),
                                       labels.cleanerName(cEntry.getKey()),
-                                      cEntry.getValue().get(2),
-                                      cEntry.getValue().get(4)
+                                      labels.cleanerPhone(cEntry.getKey()),
+                                      cEntry.getValue().getOrDefault(2, Collections.emptyList()),
+                                      cEntry.getValue().getOrDefault(4, Collections.emptyList())
                               ))
                               .toList()
               ))
@@ -112,12 +114,24 @@ public class AvailabilityController {
           @Parameter(description = "Number of professionals required (1..3)", example = "2")
           @RequestParam(defaultValue = "1") @Min(1) @Max(3) int professionalCount
   ) {
+      ProfessionalsGateway.DisplayLabels labels = professionalsGateway.loadDisplayLabels();
       List<AvailabilityForSlotResponse.VehicleCandidate> vehicles = availabilityService.vehicles().stream()
-              .map(v -> new AvailabilityForSlotResponse.VehicleCandidate(
-                      v.id(),
-                      availabilityService.availableCleanersFor(v.id(), startAt, durationHours)
-              ))
-              .filter(v -> v.availableCleanerIds().size() >= professionalCount)
+              .map(v -> {
+                var availableIds = availabilityService.availableCleanersFor(v.id(), startAt, durationHours);
+                var cleaners = availableIds.stream()
+                    .map(id -> new AvailabilityForSlotResponse.AvailableCleaner(
+                        id,
+                        labels.cleanerName(id),
+                        labels.cleanerPhone(id)
+                    ))
+                    .toList();
+                return new AvailabilityForSlotResponse.VehicleCandidate(
+                    v.id(),
+                    labels.vehicleName(v.id()),
+                    cleaners
+                );
+              })
+              .filter(v -> v.availableCleaners().size() >= professionalCount)
               .toList();
 
       return CustomResponse.successOf(

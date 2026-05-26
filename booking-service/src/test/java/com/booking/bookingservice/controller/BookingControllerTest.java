@@ -3,8 +3,8 @@ package com.booking.bookingservice.controller;
 import com.booking.bookingservice.base.AbstractRestControllerTest;
 import com.booking.bookingservice.model.entity.BookingEntity;
 import com.booking.bookingservice.model.enums.BookingStatus;
-import com.booking.bookingservice.model.mapper.BookingMapper;
 import com.booking.bookingservice.service.BookingAppService;
+import com.booking.bookingservice.service.BookingResponseFactory;
 import com.booking.common.security.AuthUserPrincipal;
 import com.booking.common.security.JwtSupport;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -31,7 +31,7 @@ class BookingControllerTest extends AbstractRestControllerTest {
     private BookingAppService bookingAppService;
 
     @MockitoBean
-    private BookingMapper bookingMapper;
+    private BookingResponseFactory bookingResponseFactory;
 
     @Test
     void create_givenValidRequest_whenPostApiBookings_thenReturnsOkAndCallsServiceAndMapper() throws Exception {
@@ -50,7 +50,7 @@ class BookingControllerTest extends AbstractRestControllerTest {
 
         // When
         when(bookingAppService.create(startAt, 2, 2, any())).thenReturn(createdBooking);
-        when(bookingMapper.map(createdBooking)).thenReturn(null);
+        when(bookingResponseFactory.toResponse(createdBooking)).thenReturn(null);
 
         String requestBody = createBookingRequestBody("2026-02-25T10:00:00", 2, 2);
         String token = JwtSupport.createToken(
@@ -76,8 +76,8 @@ class BookingControllerTest extends AbstractRestControllerTest {
 
         // Verify
         verify(bookingAppService, times(1)).create(startAt, 2, 2, any());
-        verify(bookingMapper, times(1)).map(createdBooking);
-        verifyNoMoreInteractions(bookingAppService, bookingMapper);
+        verify(bookingResponseFactory, times(1)).toResponse(createdBooking);
+        verifyNoMoreInteractions(bookingAppService, bookingResponseFactory);
 
     }
 
@@ -99,7 +99,7 @@ class BookingControllerTest extends AbstractRestControllerTest {
                 .andExpect(status().isBadRequest());
 
         // Verify
-        verifyNoInteractions(bookingAppService, bookingMapper);
+        verifyNoInteractions(bookingAppService, bookingResponseFactory);
 
     }
 
@@ -122,7 +122,7 @@ class BookingControllerTest extends AbstractRestControllerTest {
         // When
         when(bookingAppService.rescheduleForCustomer(eq(bookingId), eq(newStartAt), eq(4), any()))
             .thenReturn(updatedBooking);
-        when(bookingMapper.map(updatedBooking)).thenReturn(null);
+        when(bookingResponseFactory.toResponse(updatedBooking)).thenReturn(null);
 
         String requestBody = updateBookingRequestBody("2026-02-26T14:00:00", 4);
         String token = JwtSupport.createToken(
@@ -149,8 +149,8 @@ class BookingControllerTest extends AbstractRestControllerTest {
 
         // Verify
         verify(bookingAppService, times(1)).rescheduleForCustomer(eq(bookingId), eq(newStartAt), eq(4), any());
-        verify(bookingMapper, times(1)).map(updatedBooking);
-        verifyNoMoreInteractions(bookingAppService, bookingMapper);
+        verify(bookingResponseFactory, times(1)).toResponse(updatedBooking);
+        verifyNoMoreInteractions(bookingAppService, bookingResponseFactory);
 
     }
 
@@ -173,7 +173,7 @@ class BookingControllerTest extends AbstractRestControllerTest {
                 .andExpect(status().isBadRequest());
 
         // Verify
-        verifyNoInteractions(bookingAppService, bookingMapper);
+        verifyNoInteractions(bookingAppService, bookingResponseFactory);
 
     }
 

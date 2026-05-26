@@ -8,5 +8,6 @@ public record AuthResponse(
     String phone,
     String address,
     String role,
-    String cleanerId
+    String cleanerId,
+    String vehicleName
 ) {}

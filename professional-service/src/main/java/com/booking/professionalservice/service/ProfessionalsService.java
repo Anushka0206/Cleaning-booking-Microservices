@@ -13,4 +13,6 @@ public interface ProfessionalsService {
 
   CustomPage<CleanerDto> listCleanersByVehicle(String vehicleId, CustomPagingRequest pagingRequest);
 
+  CleanerDto registerCleaner(String fullName, String phone, String vehicleId);
+
 }

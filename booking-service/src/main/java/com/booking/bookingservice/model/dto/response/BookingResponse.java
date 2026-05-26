@@ -1,6 +1,7 @@
 package com.booking.bookingservice.model.dto.response;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public record BookingResponse(
     String id,
@@ -8,9 +9,11 @@ public record BookingResponse(
     LocalDateTime endAt,
     int durationHours,
     String vehicleId,
+    String vehicleName,
     String status,
     String userId,
     String customerName,
     String customerPhone,
-    String customerAddress
+    String customerAddress,
+    List<AssignedCleanerResponse> assignedCleaners
 ) {}

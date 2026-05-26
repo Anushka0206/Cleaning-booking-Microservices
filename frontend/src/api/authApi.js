@@ -4,7 +4,7 @@ import { api, unwrap } from './client';
 const AUTH_BASE =
   import.meta.env.VITE_AUTH_BASE_URL ||
   import.meta.env.VITE_API_BASE_URL ||
-  'http://localhost:8080';
+  (import.meta.env.DEV ? '' : 'http://localhost:8080');
 
 const authHttp = axios.create({
   baseURL: AUTH_BASE,
@@ -60,6 +60,7 @@ function saveSession(data) {
       address: data.address,
       role: data.role,
       cleanerId: data.cleanerId,
+      vehicleName: data.vehicleName,
     })
   );
   return getStoredUser();
@@ -78,6 +79,18 @@ export async function registerApi({ email, password, fullName, phone, address })
     fullName,
     phone,
     address,
+  });
+  const body = unwrap(data);
+  return saveSession(body);
+}
+
+export async function registerCleanerApi({ email, password, fullName, phone, vehicleId }) {
+  const { data } = await authHttp.post('/api/auth/register/cleaner', {
+    email,
+    password,
+    fullName,
+    phone,
+    vehicleId,
   });
   const body = unwrap(data);
   return saveSession(body);

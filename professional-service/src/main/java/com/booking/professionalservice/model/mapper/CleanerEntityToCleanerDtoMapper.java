@@ -11,6 +11,7 @@ import org.mapstruct.factory.Mappers;
 public interface CleanerEntityToCleanerDtoMapper extends BaseMapper<CleanerEntity, CleanerDto> {
 
     @Mapping(source = "vehicle.id", target = "vehicleId")
+    @Mapping(source = "vehicle.code", target = "vehicleName")
     CleanerDto map(CleanerEntity source);
 
     static CleanerEntityToCleanerDtoMapper initialize() {

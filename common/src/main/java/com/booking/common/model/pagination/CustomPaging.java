@@ -24,11 +24,10 @@ public class CustomPaging {
     private Integer pageSize;
 
     /**
-     * Returns a zero-based page index compatible with Spring Data.
-     *
-     * @return the page index (zero-based)
+     * Zero-based page index for Spring Data {@link org.springframework.data.domain.PageRequest}.
+     * Do not use as a JSON property — {@link #pageNumber} is always 1-based in API payloads.
      */
-    public Integer getPageNumber() {
+    public int zeroBasedPageIndex() {
         return pageNumber - 1;
     }
 
