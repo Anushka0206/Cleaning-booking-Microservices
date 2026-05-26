@@ -10,7 +10,7 @@ Home-cleaning **booking platform**: customers book visits, cleaners get notifica
 |---|---|
 | **Live demo** | _Add after deploy:_ `https://your-app.vercel.app` |
 | **Run locally** | [docs/QUICKSTART.md](docs/QUICKSTART.md) |
-| **Deploy (free)** | [docs/DEPLOY.md](docs/DEPLOY.md) |
+| **Deploy (free)** | [docs/DEPLOY.md](docs/DEPLOY.md) · **Oracle backend:** [docs/DEPLOY_ORACLE.md](docs/DEPLOY_ORACLE.md) |
 | **Project layout** | [docs/PROJECT_STRUCTURE.md](docs/PROJECT_STRUCTURE.md) |
 
 ---

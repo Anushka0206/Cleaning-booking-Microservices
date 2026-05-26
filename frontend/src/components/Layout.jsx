@@ -20,7 +20,7 @@ export default function Layout({ children }) {
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 py-8 sm:flex-row">
           <div className="text-center sm:text-left">
             <p className="font-semibold text-slate-800">JustLife Clean</p>
-            <p className="mt-1 text-sm text-slate-500">Home cleaning · API-powered booking</p>
+            <p className="mt-1 text-sm text-slate-500">Home cleaning · Book online in minutes</p>
           </div>
           <nav className="flex flex-wrap justify-center gap-x-5 gap-y-2 text-sm">
             {footerLinks.map((l) => (
@@ -35,7 +35,7 @@ export default function Layout({ children }) {
           </nav>
         </div>
         <p className="border-t border-slate-100 py-4 text-center text-xs text-slate-400">
-          Gateway localhost:8080 · © {new Date().getFullYear()} JustLife
+          © {new Date().getFullYear()} JustLife Clean
         </p>
       </footer>
     </div>

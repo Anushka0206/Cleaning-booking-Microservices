@@ -64,8 +64,8 @@ class ProfessionalsControllerTest extends AbstractRestControllerTest {
         assertThat(captured).isNotNull();
         assertThat(captured.getPagination()).isNotNull();
 
-        // getter is zero-based by design
-        assertThat(captured.getPagination().getPageNumber()).isEqualTo(0);
+        assertThat(captured.getPagination().getPageNumber()).isEqualTo(1);
+        assertThat(captured.getPagination().zeroBasedPageIndex()).isEqualTo(0);
         assertThat(captured.getPagination().getPageSize()).isEqualTo(10);
         assertThat(captured.getSorting()).isNotNull();
         assertThat(captured.getSorting().getSortBy()).isEqualTo("id");
@@ -144,7 +144,8 @@ class ProfessionalsControllerTest extends AbstractRestControllerTest {
         CustomPagingRequest captured = captor.getValue();
         assertThat(captured).isNotNull();
         assertThat(captured.getPagination()).isNotNull();
-        assertThat(captured.getPagination().getPageNumber()).isEqualTo(0);
+        assertThat(captured.getPagination().getPageNumber()).isEqualTo(1);
+        assertThat(captured.getPagination().zeroBasedPageIndex()).isEqualTo(0);
         assertThat(captured.getPagination().getPageSize()).isEqualTo(10);
         assertThat(captured.getSorting()).isNotNull();
         assertThat(captured.getSorting().getSortBy()).isEqualTo("id");
@@ -224,7 +225,8 @@ class ProfessionalsControllerTest extends AbstractRestControllerTest {
         CustomPagingRequest captured = captor.getValue();
         assertThat(captured).isNotNull();
         assertThat(captured.getPagination()).isNotNull();
-        assertThat(captured.getPagination().getPageNumber()).isEqualTo(0);
+        assertThat(captured.getPagination().getPageNumber()).isEqualTo(1);
+        assertThat(captured.getPagination().zeroBasedPageIndex()).isEqualTo(0);
         assertThat(captured.getPagination().getPageSize()).isEqualTo(10);
         assertThat(captured.getSorting()).isNotNull();
         assertThat(captured.getSorting().getSortBy()).isEqualTo("id");

@@ -17,6 +17,7 @@ public record AvailabilityByDateResponse(
   public record CleanerAvailability(
       String cleanerId,
       String cleanerName,
+      String phone,
       List<LocalTime> startTimes2h,
       List<LocalTime> startTimes4h
   ) {}

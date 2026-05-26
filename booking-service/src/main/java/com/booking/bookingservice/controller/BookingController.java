@@ -14,8 +14,8 @@ import com.booking.bookingservice.model.dto.request.CreateBookingRequest;
 import com.booking.bookingservice.model.dto.request.UpdateBookingRequest;
 import com.booking.bookingservice.model.dto.response.BookingResponse;
 import com.booking.bookingservice.model.entity.BookingEntity;
-import com.booking.bookingservice.model.mapper.BookingMapper;
 import com.booking.bookingservice.service.BookingAppService;
+import com.booking.bookingservice.service.BookingResponseFactory;
 import com.booking.common.model.dto.response.CustomResponse;
 import com.booking.common.security.AuthUserPrincipal;
 import com.booking.common.security.JwtAuthFilter;
@@ -35,11 +35,14 @@ import jakarta.validation.Valid;
 public class BookingController {
 
   private final BookingAppService bookingAppService;
-  private final BookingMapper bookingMapper;
+  private final BookingResponseFactory bookingResponseFactory;
 
-  public BookingController(BookingAppService bookingAppService, BookingMapper bookingMapper) {
+  public BookingController(
+      BookingAppService bookingAppService,
+      BookingResponseFactory bookingResponseFactory
+  ) {
     this.bookingAppService = bookingAppService;
-    this.bookingMapper = bookingMapper;
+    this.bookingResponseFactory = bookingResponseFactory;
   }
 
   @Operation(summary = "Create booking (login required)")
@@ -61,7 +64,7 @@ public class BookingController {
     }
     BookingEntity created = bookingAppService.create(
         req.startAt(), req.durationHours(), req.professionalCount(), user);
-    return CustomResponse.createdOf(bookingMapper.map(created));
+    return CustomResponse.createdOf(bookingResponseFactory.toResponse(created));
   }
 
   @Operation(summary = "My bookings")
@@ -69,7 +72,7 @@ public class BookingController {
   public CustomResponse<List<BookingResponse>> myBookings(HttpServletRequest httpRequest) {
     AuthUserPrincipal user = JwtAuthFilter.requireUser(httpRequest);
     List<BookingResponse> list = bookingAppService.findByUser(user.userId()).stream()
-        .map(bookingMapper::map)
+        .map(bookingResponseFactory::toResponse)
         .toList();
     return CustomResponse.successOf(list);
   }
@@ -86,7 +89,7 @@ public class BookingController {
           org.springframework.http.HttpStatus.FORBIDDEN, "Only cleaners can cancel assignments");
     }
     BookingEntity cancelled = bookingAppService.cancelByCleaner(bookingId, user.cleanerId());
-    return CustomResponse.successOf(bookingMapper.map(cancelled));
+    return CustomResponse.successOf(bookingResponseFactory.toResponse(cancelled));
   }
 
   @Operation(summary = "Customer cancels own booking")
@@ -101,7 +104,22 @@ public class BookingController {
           org.springframework.http.HttpStatus.FORBIDDEN, "Only customers can cancel their bookings");
     }
     BookingEntity cancelled = bookingAppService.cancelByCustomer(bookingId, user.userId());
-    return CustomResponse.successOf(bookingMapper.map(cancelled));
+    return CustomResponse.successOf(bookingResponseFactory.toResponse(cancelled));
+  }
+
+  @Operation(summary = "Re-send cleaner notifications for an active booking")
+  @PostMapping("/{bookingId}/notify-cleaners")
+  public CustomResponse<String> notifyCleaners(
+      HttpServletRequest httpRequest,
+      @PathVariable String bookingId
+  ) {
+    AuthUserPrincipal user = JwtAuthFilter.requireUser(httpRequest);
+    if (!user.isCustomer()) {
+      throw new org.springframework.web.server.ResponseStatusException(
+          org.springframework.http.HttpStatus.FORBIDDEN, "Only customers can trigger cleaner alerts");
+    }
+    bookingAppService.republishCleanerNotifications(bookingId, user.userId());
+    return CustomResponse.successOf("Cleaner notifications sent.");
   }
 
   @Operation(summary = "Reschedule booking (owner only)")
@@ -118,6 +136,6 @@ public class BookingController {
         req.newDurationHours(),
         user.userId()
     );
-    return CustomResponse.successOf(bookingMapper.map(updatedBookingEntity));
+    return CustomResponse.successOf(bookingResponseFactory.toResponse(updatedBookingEntity));
   }
 }

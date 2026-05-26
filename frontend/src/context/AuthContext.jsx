@@ -4,6 +4,7 @@ import {
   getStoredUser,
   loginApi,
   registerApi,
+  registerCleanerApi,
   updateStoredUser,
 } from '../api/authApi';
 import { getApiErrorMessage } from '../api/client';
@@ -33,6 +34,16 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
+  const registerCleaner = useCallback(async (payload) => {
+    try {
+      const u = await registerCleanerApi(payload);
+      setUser(u);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: getApiErrorMessage(err) || 'Cleaner registration failed' };
+    }
+  }, []);
+
   const logout = useCallback(() => {
     clearSession();
     setUser(null);
@@ -55,10 +66,11 @@ export function AuthProvider({ children }) {
       isCustomer: user?.role === 'CUSTOMER',
       login,
       register,
+      registerCleaner,
       logout,
       updateProfile,
     }),
-    [user, login, register, logout, updateProfile]
+    [user, login, register, registerCleaner, logout, updateProfile]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

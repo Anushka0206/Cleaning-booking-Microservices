@@ -2,8 +2,11 @@ package com.booking.professionalservice.controller;
 
 import com.booking.common.model.dto.request.CustomPagingRequest;
 import com.booking.common.model.dto.response.CustomPagingResponse;
+import com.booking.professionalservice.model.dto.request.CreateCleanerRequest;
 import com.booking.professionalservice.model.dto.response.CleanerResponse;
 import com.booking.professionalservice.model.dto.response.VehicleResponse;
+import com.booking.professionalservice.model.mapper.CleanerDtoToCleanerResponseMapper;
+import com.booking.common.model.dto.response.CustomResponse;
 import com.booking.professionalservice.model.mapper.CustomPageCleanerDtoToCustomPagingCleanerResponseMapper;
 import com.booking.professionalservice.model.mapper.CustomPageVehicleDtoToCustomPagingVehicleResponseMapper;
 import com.booking.professionalservice.service.ProfessionalsService;
@@ -33,8 +36,30 @@ public class ProfessionalsController {
     private final CustomPageVehicleDtoToCustomPagingVehicleResponseMapper vehiclePagingMapper =
             CustomPageVehicleDtoToCustomPagingVehicleResponseMapper.initialize();
 
+    private final CleanerDtoToCleanerResponseMapper cleanerResponseMapper =
+            CleanerDtoToCleanerResponseMapper.initialize();
+
     public ProfessionalsController(ProfessionalsService professionalsService) {
         this.professionalsService = professionalsService;
+    }
+
+    @Operation(
+            summary = "Register a new cleaner (worker profile)",
+            description = "Creates a cleaner assigned to a team/vehicle. Used during cleaner sign-up."
+    )
+    @PostMapping("/cleaners/register")
+    public CustomResponse<CleanerResponse> registerCleaner(
+            @Valid @RequestBody final CreateCleanerRequest request
+    ) {
+        return CustomResponse.createdOf(
+                cleanerResponseMapper.map(
+                        professionalsService.registerCleaner(
+                                request.fullName(),
+                                request.phone(),
+                                request.vehicleId()
+                        )
+                )
+        );
     }
 
     @Operation(

@@ -1,8 +1,12 @@
 package com.booking.common.model.dto.response;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 import org.springframework.http.HttpStatus;
 
 import java.io.Serializable;
@@ -14,8 +18,12 @@ import java.time.LocalDateTime;
  * @param <T> the type of response payload
  */
 @Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 @Builder
-public class CustomResponse<T> {
+@JsonIgnoreProperties(ignoreUnknown = true)
+public class CustomResponse<T> implements Serializable {
 
     @Builder.Default
     private LocalDateTime time = LocalDateTime.now();

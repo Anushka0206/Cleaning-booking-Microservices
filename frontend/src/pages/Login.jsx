@@ -1,23 +1,52 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import Alert from '../components/Alert';
+import { fetchTeams } from '../api/professionalsApi';
 import { useAuth } from '../context/AuthContext';
 
 export default function Login() {
-  const { isAuthenticated, user, login, register } = useAuth();
+  const { isAuthenticated, user, login, register, registerCleaner } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const redirectTo =
     location.state?.from || (user?.role === 'CLEANER' ? '/cleaner' : '/bookings');
 
   const [tab, setTab] = useState('signin');
+  const [accountType, setAccountType] = useState('customer');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
+  const [vehicleId, setVehicleId] = useState('');
+  const [teams, setTeams] = useState([]);
+  const [teamsLoading, setTeamsLoading] = useState(false);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (tab !== 'register' || accountType !== 'cleaner') return;
+    let cancelled = false;
+    setTeamsLoading(true);
+    fetchTeams()
+      .then((list) => {
+        if (!cancelled) {
+          setTeams(list);
+          if (list.length && !vehicleId) {
+            setVehicleId(list[0].id);
+          }
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setTeams([]);
+      })
+      .finally(() => {
+        if (!cancelled) setTeamsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [tab, accountType]);
 
   if (isAuthenticated) {
     return <Navigate to={user?.role === 'CLEANER' ? '/cleaner' : '/'} replace />;
@@ -40,20 +69,43 @@ export default function Login() {
     e.preventDefault();
     setError('');
     setLoading(true);
-    const result = await register({
-      email,
-      password,
-      fullName: name,
-      phone,
-      address,
-    });
+    let result;
+    if (accountType === 'cleaner') {
+      if (!vehicleId) {
+        setLoading(false);
+        setError('Choose a team / vehicle.');
+        return;
+      }
+      if (!phone || phone.replace(/\D/g, '').length < 8) {
+        setLoading(false);
+        setError('Enter a valid phone number (at least 8 digits).');
+        return;
+      }
+      result = await registerCleaner({
+        email,
+        password,
+        fullName: name,
+        phone,
+        vehicleId,
+      });
+    } else {
+      result = await register({
+        email,
+        password,
+        fullName: name,
+        phone,
+        address,
+      });
+    }
     setLoading(false);
     if (!result.ok) {
       setError(result.error);
       return;
     }
-    navigate('/bookings', { replace: true });
+    navigate(accountType === 'cleaner' ? '/cleaner' : '/bookings', { replace: true });
   }
+
+  const isRegister = tab === 'register';
 
   return (
     <div className="mx-auto flex min-h-[70vh] max-w-lg flex-col justify-center px-4 py-12">
@@ -63,8 +115,10 @@ export default function Login() {
         </h1>
         <p className="mt-2 text-slate-500">
           {tab === 'signin'
-            ? 'Sign in to book and manage your cleanings'
-            : 'Register as a customer — cleaners use demo sign-in'}
+            ? 'Sign in to book or manage cleanings'
+            : accountType === 'cleaner'
+              ? 'Register as a cleaner — join a team'
+              : 'Register as a customer'}
         </p>
       </div>
 
@@ -95,11 +149,34 @@ export default function Login() {
         </button>
       </div>
 
+      {isRegister && (
+        <div className="mt-4 flex rounded-xl border border-slate-200 bg-slate-50 p-1">
+          <button
+            type="button"
+            onClick={() => setAccountType('customer')}
+            className={`flex-1 rounded-lg py-2 text-sm font-medium ${
+              accountType === 'customer' ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-600'
+            }`}
+          >
+            Customer
+          </button>
+          <button
+            type="button"
+            onClick={() => setAccountType('cleaner')}
+            className={`flex-1 rounded-lg py-2 text-sm font-medium ${
+              accountType === 'cleaner' ? 'bg-white text-brand-700 shadow-sm' : 'text-slate-600'
+            }`}
+          >
+            Cleaner
+          </button>
+        </div>
+      )}
+
       <form
         onSubmit={tab === 'signin' ? handleSignIn : handleRegister}
         className="card mt-6 space-y-4 p-6"
       >
-        {tab === 'register' && (
+        {isRegister && (
           <>
             <div>
               <label htmlFor="name" className="mb-1 block text-sm font-medium text-slate-700">
@@ -121,25 +198,53 @@ export default function Login() {
               <input
                 id="phone"
                 type="tel"
+                required={accountType === 'cleaner'}
+                minLength={accountType === 'cleaner' ? 8 : undefined}
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 className="input-field"
                 placeholder="+971501234567"
               />
             </div>
-            <div>
-              <label htmlFor="address" className="mb-1 block text-sm font-medium text-slate-700">
-                Address
-              </label>
-              <input
-                id="address"
-                type="text"
-                value={address}
-                onChange={(e) => setAddress(e.target.value)}
-                className="input-field"
-                placeholder="Building, area, city"
-              />
-            </div>
+            {accountType === 'customer' && (
+              <div>
+                <label htmlFor="address" className="mb-1 block text-sm font-medium text-slate-700">
+                  Address
+                </label>
+                <input
+                  id="address"
+                  type="text"
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  className="input-field"
+                  placeholder="Building, area, city"
+                />
+              </div>
+            )}
+            {accountType === 'cleaner' && (
+              <div>
+                <label htmlFor="team" className="mb-1 block text-sm font-medium text-slate-700">
+                  Team / vehicle
+                </label>
+                <select
+                  id="team"
+                  required
+                  value={vehicleId}
+                  onChange={(e) => setVehicleId(e.target.value)}
+                  className="input-field"
+                >
+                  {teamsLoading && <option value="">Loading teams…</option>}
+                  {!teamsLoading && teams.length === 0 && (
+                    <option value="">No teams available — check server is online</option>
+                  )}
+                  {teams.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.code || t.licensePlate || t.id}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </>
         )}
 

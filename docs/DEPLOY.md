@@ -15,6 +15,15 @@ Easiest **free** setup for a resume:
 
 Without a public backend, the Vercel site shows UI only — **login/booking will not work**.
 
+### "Invalid CORS request" on Vercel login
+
+Usually two causes:
+
+1. **Auth service CORS** only allowed `localhost:5173` — fixed in `auth-service` `WebConfig` (allows `https://*.vercel.app`). Restart **auth-service** after pulling.
+2. **`VITE_API_BASE_URL=http://localhost:8080`** on Vercel — the browser cannot call your laptop from a public URL. You need a **public** API URL (VM IP, ngrok, etc.) in Vercel env, then **Redeploy**.
+
+Until then, use **http://localhost:5173** for login demo (with backend running locally).
+
 ---
 
 ## A) Deploy frontend (Vercel)
@@ -46,21 +55,17 @@ Without a public backend, the Vercel site shows UI only — **login/booking will
 
 ## B) Deploy backend (Oracle Cloud Free VM)
 
-1. Create an **Always Free** Ubuntu VM
-2. Install Docker + Git
-3. Clone repo, copy `.env.example` → `.env`
-4. Run:
+**Full step-by-step:** **[DEPLOY_ORACLE.md](./DEPLOY_ORACLE.md)** (recommended).
 
-   ```bash
-   docker compose -f docker-local-compose.yml up -d
-   ```
+Quick summary:
 
-5. Start Java services (same order as [QUICKSTART.md](./QUICKSTART.md)) — or use full `docker-compose.yml` if you build images
-6. Open firewall port **8080** (Oracle security list + `ufw` if used)
-7. Test: `http://VM_IP:8080/actuator/health`
-8. Update Vercel `VITE_API_BASE_URL` → **Redeploy** frontend
+1. Oracle Always Free Ubuntu VM (ARM, 12GB+ RAM)
+2. Open ports **22, 80, 443, 8080**
+3. `git clone` → `cp .env.example .env` → set `JWT_SECRET` + `API_DOMAIN` (DuckDNS)
+4. `docker compose -f docker-compose.deploy.yml up -d --build`
+5. Vercel: `VITE_API_BASE_URL=https://your-subdomain.duckdns.org` → **Redeploy**
 
-Optional: free hostname with [DuckDNS](https://www.duckdns.org) + HTTPS (Caddy).
+Use **HTTPS** API URL for Vercel (not `http://VM_IP:8080`) — see deploy guide.
 
 ---
 

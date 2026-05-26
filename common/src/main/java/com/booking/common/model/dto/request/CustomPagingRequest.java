@@ -42,7 +42,7 @@ public class CustomPagingRequest {
         Sort sort = (sorting != null) ? sorting.toSort() : Sort.unsorted();
 
         return PageRequest.of(
-                Math.toIntExact(pagination.getPageNumber()),
+                pagination.zeroBasedPageIndex(),
                 Math.toIntExact(pagination.getPageSize()),
                 sort
         );

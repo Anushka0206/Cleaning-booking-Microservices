@@ -66,8 +66,7 @@ export default function Availability() {
     <div className="page-main max-w-4xl">
       <h1 className="text-3xl font-bold text-slate-900">Availability calendar</h1>
       <p className="mt-2 text-slate-500">
-        Pick a day in the week view — live data from{' '}
-        <code className="text-sm">GET /api/availability</code>. Fridays are closed.
+        Pick a day in the week view to see real open slots. Fridays are closed.
       </p>
 
       <div className="mt-6">
@@ -132,6 +131,9 @@ export default function Availability() {
                 <div key={c.cleanerId} className="mt-3 border-t border-slate-100 pt-3">
                   <p className="text-sm font-medium text-slate-800">
                     {c.cleanerName || 'Cleaner'}
+                    {c.phone ? (
+                      <span className="ml-2 font-normal text-slate-500">· {c.phone}</span>
+                    ) : null}
                   </p>
                   <p className="mt-1 text-xs text-slate-500">
                     2h starts: {formatTimes(c.startTimes2h)}

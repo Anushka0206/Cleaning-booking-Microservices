@@ -78,10 +78,6 @@ public class BookingAppService {
       );
     }
 
-    bookingRepository.save(booking);
-
-    String bookingId = booking.getId();
-
     List<String> selected = vehicleCandidate.availableCleanerIds().stream()
             .distinct()
             .limit(professionalCount)
@@ -91,12 +87,13 @@ public class BookingAppService {
       throw new DomainException("Not enough available cleaners.");
     }
 
-    bookingCleanerRepository.saveAll(
-            selected.stream().map(cid -> new BookingCleanerEntity(booking, cid)).toList()
-    );
+    for (String cleanerId : selected) {
+      booking.getCleaners().add(new BookingCleanerEntity(booking, cleanerId));
+    }
+    bookingRepository.save(booking);
 
     publishEvent(BookingEventType.BOOKING_CREATED, booking, selected);
-    return booking;
+    return bookingRepository.findWithCleanersById(booking.getId()).orElse(booking);
   }
 
   @Transactional
@@ -105,7 +102,7 @@ public class BookingAppService {
           @CacheEvict(cacheNames = "booking-availability-slot-v4", allEntries = true)
   })
   public BookingEntity cancelByCleaner(String bookingId, String cleanerId) {
-    BookingEntity booking = bookingRepository.findById(bookingId)
+    BookingEntity booking = bookingRepository.findWithCleanersById(bookingId)
             .orElseThrow(() -> new DomainException("Booking not found: " + bookingId));
     if (booking.getStatus() == BookingStatus.CANCELLED) {
       throw new DomainException("Booking already cancelled.");
@@ -124,8 +121,26 @@ public class BookingAppService {
     return booking;
   }
 
+  @Transactional(readOnly = true)
   public List<BookingEntity> findByUser(String userId) {
     return bookingRepository.findByUserIdOrderByStartAtDesc(userId);
+  }
+
+  /** Re-send Kafka event so cleaners get notifications (e.g. after notification-service was fixed). */
+  @Transactional(readOnly = true)
+  public void republishCleanerNotifications(String bookingId, String userId) {
+    BookingEntity booking = requireOwnedBookingWithCleaners(bookingId, userId);
+    if (booking.getStatus() == BookingStatus.CANCELLED) {
+      throw new DomainException("Cannot notify cleaners for a cancelled booking.");
+    }
+    List<String> cleanerIds = booking.getCleaners().stream()
+        .map(BookingCleanerEntity::getCleanerId)
+        .distinct()
+        .toList();
+    if (cleanerIds.isEmpty()) {
+      throw new DomainException("No cleaners assigned to this booking.");
+    }
+    publishEvent(BookingEventType.BOOKING_CREATED, booking, cleanerIds);
   }
 
   @Transactional
@@ -134,7 +149,7 @@ public class BookingAppService {
           @CacheEvict(cacheNames = "booking-availability-slot-v4", allEntries = true)
   })
   public BookingEntity cancelByCustomer(String bookingId, String userId) {
-    BookingEntity booking = requireOwnedBooking(bookingId, userId);
+    BookingEntity booking = requireOwnedBookingWithCleaners(bookingId, userId);
     if (booking.getStatus() == BookingStatus.CANCELLED) {
       throw new DomainException("Booking already cancelled.");
     }
@@ -147,6 +162,11 @@ public class BookingAppService {
     return booking;
   }
 
+  @Transactional
+  @Caching(evict = {
+          @CacheEvict(cacheNames = "booking-availability-by-date-v4", allEntries = true),
+          @CacheEvict(cacheNames = "booking-availability-slot-v4", allEntries = true)
+  })
   public BookingEntity rescheduleForCustomer(
       String bookingId,
       LocalDateTime newStartAt,
@@ -159,6 +179,15 @@ public class BookingAppService {
 
   private BookingEntity requireOwnedBooking(String bookingId, String userId) {
     BookingEntity booking = bookingRepository.findById(bookingId)
+            .orElseThrow(() -> new DomainException("Booking not found: " + bookingId));
+    if (userId == null || !userId.equals(booking.getUserId())) {
+      throw new DomainException("You do not have access to this booking.");
+    }
+    return booking;
+  }
+
+  private BookingEntity requireOwnedBookingWithCleaners(String bookingId, String userId) {
+    BookingEntity booking = bookingRepository.findWithCleanersById(bookingId)
             .orElseThrow(() -> new DomainException("Booking not found: " + bookingId));
     if (userId == null || !userId.equals(booking.getUserId())) {
       throw new DomainException("You do not have access to this booking.");
@@ -190,16 +219,14 @@ public class BookingAppService {
   })
   public BookingEntity reschedule(String bookingId, LocalDateTime newStartAt, int newDurationHours) {
 
-    BookingEntity existing = bookingRepository.findById(bookingId)
+    BookingEntity existing = bookingRepository.findWithCleanersById(bookingId)
             .orElseThrow(() -> new DomainException("Booking not found: " + bookingId));
 
-    List<BookingCleanerEntity> previousAssignments = bookingCleanerRepository.findByBooking_Id(bookingId);
-    int professionalCount = previousAssignments.size();
-
-    List<String> previousCleanerIds = previousAssignments.stream()
+    List<String> previousCleanerIds = existing.getCleaners().stream()
             .map(BookingCleanerEntity::getCleanerId)
             .distinct()
             .toList();
+    int professionalCount = Math.max(previousCleanerIds.size(), 1);
 
     String chosenVehicleId = existing.getVehicleId();
     List<String> chosenCleanerIds;
@@ -233,20 +260,18 @@ public class BookingAppService {
       }
     }
 
-    bookingCleanerRepository.deleteAllByBookingId(bookingId);
+    existing.getCleaners().clear();
+    bookingRepository.flush();
 
     LocalDateTime newEndAt = newStartAt.plusHours(newDurationHours);
     existing.reschedule(newStartAt, newEndAt, newDurationHours, chosenVehicleId);
+    for (String cleanerId : chosenCleanerIds) {
+      existing.getCleaners().add(new BookingCleanerEntity(existing, cleanerId));
+    }
     bookingRepository.save(existing);
 
-    bookingCleanerRepository.saveAll(
-            chosenCleanerIds.stream()
-                    .map(cid -> new BookingCleanerEntity(existing, cid))
-                    .toList()
-    );
-
     publishEvent(BookingEventType.BOOKING_RESCHEDULED, existing, chosenCleanerIds);
-    return existing;
+    return bookingRepository.findWithCleanersById(bookingId).orElse(existing);
   }
 
 }

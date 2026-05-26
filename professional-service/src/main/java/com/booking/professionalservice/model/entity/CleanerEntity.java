@@ -18,6 +18,9 @@ public class CleanerEntity {
   @Column(name = "full_name", nullable = false)
   private String fullName;
 
+  @Column(name = "phone", length = 32)
+  private String phone;
+
   @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "vehicle_id", nullable = false)
   private VehicleEntity vehicle;
@@ -31,5 +34,8 @@ public class CleanerEntity {
 
   public String getId() { return id; }
   public String getFullName() { return fullName; }
+  public String getPhone() { return phone; }
   public VehicleEntity getVehicle() { return vehicle; }
+
+  public void setPhone(String phone) { this.phone = phone; }
 }

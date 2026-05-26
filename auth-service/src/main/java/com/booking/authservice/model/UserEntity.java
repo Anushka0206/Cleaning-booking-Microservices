@@ -69,4 +69,5 @@ public class UserEntity {
   public void setPhone(String phone) { this.phone = phone; }
   public void setAddress(String address) { this.address = address; }
   public void setRole(UserRole role) { this.role = role; }
+  public void setCleanerId(String cleanerId) { this.cleanerId = cleanerId; }
 }

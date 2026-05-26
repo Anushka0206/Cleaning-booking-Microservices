@@ -18,7 +18,7 @@ import java.util.Map;
 public class ProfessionalsGateway {
 
 
-    private static final int REQUEST_PAGE_NUMBER_WORKAROUND = 2;
+    private static final int REQUEST_PAGE_NUMBER = 1;
     private static final int REQUEST_PAGE_SIZE = 100;
 
     private final ProfessionalsClient professionalsClient;
@@ -48,7 +48,7 @@ public class ProfessionalsGateway {
 
     private CustomPagingRequest defaultPagingRequest() {
         CustomPaging paging = CustomPaging.builder()
-                .pageNumber(REQUEST_PAGE_NUMBER_WORKAROUND) // <-- key fix
+                .pageNumber(REQUEST_PAGE_NUMBER)
                 .pageSize(REQUEST_PAGE_SIZE)
                 .build();
 
@@ -71,6 +71,7 @@ public class ProfessionalsGateway {
     public DisplayLabels loadDisplayLabels() {
         Map<String, String> vehicleNames = new HashMap<>();
         Map<String, String> cleanerNames = new HashMap<>();
+        Map<String, String> cleanerPhones = new HashMap<>();
         for (VehicleDto vehicle : listVehicles()) {
             vehicleNames.put(vehicle.id(), formatVehicleLabel(vehicle));
             List<CleanerDto> cleaners = vehicle.cleaners();
@@ -80,9 +81,12 @@ public class ProfessionalsGateway {
             }
             for (CleanerDto cleaner : cleaners) {
                 cleanerNames.put(cleaner.id(), formatCleanerLabel(cleaner));
+                if (cleaner.phone() != null && !cleaner.phone().isBlank()) {
+                    cleanerPhones.put(cleaner.id(), cleaner.phone());
+                }
             }
         }
-        return new DisplayLabels(vehicleNames, cleanerNames);
+        return new DisplayLabels(vehicleNames, cleanerNames, cleanerPhones);
     }
 
     private static String formatVehicleLabel(VehicleDto vehicle) {
@@ -102,13 +106,21 @@ public class ProfessionalsGateway {
         return cleaner.id();
     }
 
-    public record DisplayLabels(Map<String, String> vehicleNames, Map<String, String> cleanerNames) {
+    public record DisplayLabels(
+        Map<String, String> vehicleNames,
+        Map<String, String> cleanerNames,
+        Map<String, String> cleanerPhones
+    ) {
         public String vehicleName(String vehicleId) {
             return vehicleNames.getOrDefault(vehicleId, vehicleId);
         }
 
         public String cleanerName(String cleanerId) {
             return cleanerNames.getOrDefault(cleanerId, cleanerId);
+        }
+
+        public String cleanerPhone(String cleanerId) {
+            return cleanerPhones.getOrDefault(cleanerId, "");
         }
     }
 }

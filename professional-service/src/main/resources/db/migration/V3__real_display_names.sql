@@ -1,4 +1,6 @@
--- Friendly labels for UI (existing databases)
+-- Friendly labels + phone for UI (existing databases)
+
+ALTER TABLE cleaner ADD COLUMN IF NOT EXISTS phone VARCHAR(32);
 
 UPDATE vehicle SET code = 'Marina Team A' WHERE id = '5b2b9322-3a9a-42b0-84a0-7d27af53dea4';
 UPDATE vehicle SET code = 'Downtown Team B' WHERE id = '6c84d63c-cfb9-4088-933f-66c837794787';
@@ -35,3 +37,5 @@ UPDATE cleaner SET full_name = 'Kabir Joshi' WHERE id = '47cbbc2d-da3d-486b-9e47
 UPDATE cleaner SET full_name = 'Diya Malhotra' WHERE id = '25f03770-ca7a-408c-81fb-93cf494bb5c4';
 UPDATE cleaner SET full_name = 'Rohan Kapoor' WHERE id = '27d86c53-c072-4916-b90f-7f39d6631835';
 UPDATE cleaner SET full_name = 'Neha Bansal' WHERE id = '3004fc94-def3-443b-aaa9-25806686cbce';
+
+UPDATE cleaner SET phone = '+971501234567' WHERE id = '2949580d-d1bf-4a22-966f-aaf79898fd3d' AND phone IS NULL;

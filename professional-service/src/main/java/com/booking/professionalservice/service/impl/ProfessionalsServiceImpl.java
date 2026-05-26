@@ -11,12 +11,15 @@ import com.booking.professionalservice.model.mapper.VehicleEntityToVehicleDtoMap
 import com.booking.professionalservice.repository.CleanerRepository;
 import com.booking.professionalservice.repository.VehicleRepository;
 import com.booking.professionalservice.service.ProfessionalsService;
+import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Map;
@@ -133,5 +136,19 @@ public class ProfessionalsServiceImpl implements ProfessionalsService {
             .totalElementCount(page.getTotalElements())
             .totalPageCount(page.getTotalPages())
             .build();
+  }
+
+  @Override
+  @Transactional
+  @CacheEvict(cacheNames = {"professionals-cleaners", "professionals-cleaners-by-vehicle", "professionals-vehicles"}, allEntries = true)
+  public CleanerDto registerCleaner(String fullName, String phone, String vehicleId) {
+    VehicleEntity vehicle = vehicleRepository.findById(vehicleId)
+        .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Team / vehicle not found"));
+    CleanerEntity cleaner = new CleanerEntity(fullName.trim(), vehicle);
+    if (phone != null && !phone.isBlank()) {
+      cleaner.setPhone(phone.trim());
+    }
+    CleanerEntity saved = cleanerRepository.save(cleaner);
+    return cleanerMapper.map(saved);
   }
 }
